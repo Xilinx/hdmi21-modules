@@ -16,7 +16,12 @@
 #include <linux/module.h>
 #include <linux/regmap.h>
 #include <linux/slab.h>
+#include <linux/version.h>
+#if (KERNEL_VERSION(6, 12, 0) > LINUX_VERSION_CODE)
+#include <asm/unaligned.h>
+#else
 #include <linux/unaligned.h>
+#endif
 
 int si5344_entry(void);
 void si5344_exit(void);
