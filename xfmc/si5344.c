@@ -16,7 +16,7 @@
 #include <linux/module.h>
 #include <linux/regmap.h>
 #include <linux/slab.h>
-#include <asm/unaligned.h>
+#include <linux/unaligned.h>
 
 int si5344_entry(void);
 void si5344_exit(void);
