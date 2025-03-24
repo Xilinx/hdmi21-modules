@@ -38,11 +38,9 @@ static int sel_mux(int direction, int clk_sel)
 #ifndef BASE_BOARD_VEK280
 	if (direction)
 	{
-		printk("%s:direction is tx: clk_sel: %d\n",__func__,clk_sel);
 		fmc65_tx_refclk_sel(clk_sel);
 		fmc64_tx_refclk_sel(clk_sel);
 	} else {
-		printk("%s:direction is rx: clk_sel: %d\n",__func__,clk_sel);
 		fmc64_rx_refclk_sel(clk_sel);
 	}
 
@@ -52,19 +50,13 @@ static int sel_mux(int direction, int clk_sel)
 
 static int set_linerate(u8 direction, u8 is_frl, u64 linerate, u8 lanes)
 {
-	printk("%s:direction is tx: isfrl: %d linerate %llu lanes %d\n",
-					__func__,is_frl,linerate,lanes);
 	if (direction) {
-		printk("%s:direction is tx: isfrl: %d linerate %llu lanes %d\n",
-						__func__,is_frl,linerate,lanes);
 #ifdef BASE_BOARD_VEK280
 		ti_tmds1204tx_linerate_conf(is_frl, linerate, direction,lanes);
 #else
 		onsemitx_linerate_conf(is_frl, linerate, direction);
 #endif
 	} else {
-		printk("%s:direction is rx: isfrl: %d linerate %llu lanes %d\n",
-						__func__,is_frl,linerate,lanes);
 #ifdef BASE_BOARD_VEK280
 		ti_tmds1204rx_linerate_conf(is_frl, linerate, direction,lanes);
 #else

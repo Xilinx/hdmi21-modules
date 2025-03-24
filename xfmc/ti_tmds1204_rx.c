@@ -24,6 +24,8 @@ int ti_tmds1204rx_entry(void);
 
 #define DRIVER_NAME "ti_tmds1204-rx"
 
+#define DELAY_MS	5
+
 #define to_ti_tmds1204rx(_hw)	container_of(_hw, struct ti_tmds1204rx, hw)
 struct ti_tmds1204rx *rxdata;
 
@@ -410,6 +412,11 @@ struct ti_tmds1204rx {
 	u32 mode_index;
 };
 
+static inline void msleep_range(unsigned int delay_base)
+{
+       usleep_range(delay_base * 1000, delay_base * 1000 + 500);
+}
+
 static inline int ti_tmds1204rx_read_reg(struct ti_tmds1204rx *priv, u8 addr, u8 *val)
 {
 	int err = 0;
@@ -425,6 +432,7 @@ static inline int ti_tmds1204rx_write_reg(struct ti_tmds1204rx *priv, u8 addr, u
 {
 	int err = 0;
 
+	msleep(DELAY_MS);
 	err = regmap_write(priv->regmap, addr, val);
 	if (err) {
 		dev_dbg(&priv->client->dev,

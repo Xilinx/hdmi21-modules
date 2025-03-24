@@ -36,6 +36,7 @@
 #define IDT_8T49N24X_FPD_MIN   8000      //!< Min Phase Detector Freq in Hz
 #define IDT_8T49N24X_P_MAX 4194304  /* pow(2,22) */  //!< Max P div value
 #define IDT_8T49N24X_M_MAX 16777216 /* pow(2,24) */  //!< Max M mult value
+#define DELAY_MS	5
 
 #define DRIVER_NAME "idt"
 
@@ -81,6 +82,11 @@ int set_clock(struct idts *idt, u32 freq_in, u32 freq_out);
 
 #define to_idts(_hw)	container_of(_hw, struct idts, hw)
 
+static inline void msleep_range(unsigned int delay_base)
+{
+       usleep_range(delay_base * 1000, delay_base * 1000 + 500);
+}
+
 static inline int idt_read_reg(struct idts *priv, u8 addr, u8 *val)
 {
 	int err = 0;
@@ -96,6 +102,7 @@ static inline int idt_write_reg(struct idts *priv, u16 addr, u8 val)
 {
 	int err = 0;
 
+	msleep(DELAY_MS);
 	err = regmap_write(priv->regmap, addr, val);
 	if (err) {
 		dev_dbg(&priv->client->dev,

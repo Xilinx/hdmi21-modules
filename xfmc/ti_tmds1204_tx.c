@@ -24,6 +24,8 @@ int ti_tmds1204tx_entry(void);
 
 #define DRIVER_NAME "ti_tmds1204-tx"
 
+#define DELAY_MS	5
+
 #define to_ti_tmds1204tx(_hw)	container_of(_hw, struct ti_tmds1204tx, hw)
 struct ti_tmds1204tx *txdata;
 
@@ -393,6 +395,11 @@ struct ti_tmds1204tx {
 	u32 mode_index;
 };
 
+static inline void msleep_range(unsigned int delay_base)
+{
+       usleep_range(delay_base * 1000, delay_base * 1000 + 500);
+}
+
 static inline int ti_tmds1204tx_read_reg(struct ti_tmds1204tx *priv, u8 addr, u8 *val)
 {
 	int err = 0;
@@ -408,6 +415,7 @@ static inline int ti_tmds1204tx_write_reg(struct ti_tmds1204tx *priv, u8 addr, u
 {
 	int err = 0;
 
+	msleep(DELAY_MS);
 	err = regmap_write(priv->regmap, addr, val);
 	if (err) {
 		dev_dbg(&priv->client->dev,
@@ -426,7 +434,7 @@ int ti_tmds1204tx_linerate_conf(u8 is_frl, u64 linerate, u8 is_tx, u8 lanes)
 	u8 revision = 1;
 
 	linerate_mbps = (u32)((u64)linerate / 1000000);
-	dev_info(&txdata->client->dev, "linerate %llu lineratembps %u lanes %d\n\r",
+	dev_dbg(&txdata->client->dev, "linerate %llu lineratembps %u lanes %d\n\r",
 		 linerate, linerate_mbps, lanes);
 	/* TX */
 	if (is_tx == 1) {
