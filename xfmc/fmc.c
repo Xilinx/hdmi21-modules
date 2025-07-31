@@ -13,11 +13,7 @@
 #include <linux/regmap.h>
 #include <linux/slab.h>
 #include <linux/version.h>
-
-void fmc_exit(void);
-int fmc_entry(void);
-
-struct fmcs *fmc;
+#include "x_vfmc.h"
 
 static const struct regmap_config fmc_regmap_config = {
 	.reg_bits = 8,
@@ -38,6 +34,8 @@ struct fmcs {
 	struct mutex lock;
 	u32 mode_index;
 };
+
+struct fmcs *fmc;
 
 static inline void msleep_range(unsigned int delay_base)
 {
@@ -76,17 +74,29 @@ static const struct i2c_device_id fmc_id[] = {
 };
 MODULE_DEVICE_TABLE(i2c, fmc_id);
 
+/*
+ * fmc_probe - probe function for FMC expander I2C device
+ * @client: Pointer to I2C client device structure
+ *
+ * This function is called when the FMC expander device is detected and matched
+ * with the driver. It allocates memory for device data, initializes regmap for
+ * I2C communication, and configures the device to select the HPC connector.
+ *
+ * Return: 0 on success, negative error code on failure
+ */
 static int fmc_probe(struct i2c_client *client)
 {
 	int ret;
 
-	printk("%s\n",__func__);
+	/* Allocate memory for FMC device data structure */
 	fmc = devm_kzalloc(&client->dev, sizeof(*fmc), GFP_KERNEL);
 	if (!fmc)
 		return -ENOMEM;
 
+	/* Initialize mutex for serializing device operations */
 	mutex_init(&fmc->lock);
 
+	/* Initialize regmap for I2C register access */
 	fmc->regmap = devm_regmap_init_i2c(client, &fmc_regmap_config);
 	if (IS_ERR(fmc->regmap)) {
 		dev_err(&client->dev,
@@ -96,17 +106,20 @@ static int fmc_probe(struct i2c_client *client)
 		goto err_regmap;
 	}
 
-	/* select HPC connector */
+	/* Configure FMC expander to select HPC (High Pin Count) connector */
+	/* Writing 0x01 to register 0x0 selects the HPC connector path */
 	ret = fmc_write_reg(fmc, 0x0, 0x01);
 	if (ret) {
-		dev_err(&client->dev," Failed to select HDP0 port\n");
+		dev_err(&client->dev, " Failed to select HDP0 port\n");
 		return ret;
 	}
 
-	printk("%s done\n",__func__);
+	/* Probe completed successfully */
+	dev_info(&client->dev, "FMC probe completed successfully\n");
 	return 0;
 
 err_regmap:
+	/* Cleanup mutex on regmap initialization failure */
 	mutex_destroy(&fmc->lock);
 	return ret;
 }
@@ -141,6 +154,15 @@ EXPORT_SYMBOL_GPL(fmc_exit);
 
 int fmc_entry(void)
 {
+	struct device_node *node;
+
+	node = of_find_matching_node(NULL, fmc_of_id_table);
+	if (!node) {
+		pr_err("FMC: Compatible DT node 'expander-fmc' not found.\n");
+		return -ENODEV;
+	}
+
+	of_node_put(node);
 	return i2c_add_driver(&fmc_i2c_driver);
 }
 EXPORT_SYMBOL_GPL(fmc_entry);

@@ -5,7 +5,7 @@
  * Copyright (C) 2024, Advanced Micro Devices, Inc. All rights reserved.
  *
  * This driver configures the SI5344 chip to generate constant 400MHz FRL clock
- * Note: This is not a common clock framwork driver.
+ * Note: This is not a common clock framework driver.
  */
 #include <linux/clk.h>
 #include <linux/clk-provider.h>
@@ -22,9 +22,7 @@
 #else
 #include <linux/unaligned.h>
 #endif
-
-int si5344_entry(void);
-void si5344_exit(void);
+#include "x_vfmc.h"
 
 struct clk_si5344 {
 	struct clk_hw hw;
@@ -533,15 +531,27 @@ static int si5344_write_multiple(struct clk_si5344 *data,
 	return 0;
 }
 
+/*
+ * si5344_send_preamble - send preamble configuration to SI5344 device
+ * @data: Pointer to clk_si5344 device structure
+ *
+ * This function sends the preamble register configuration to the SI5344 clock
+ * generator device. The preamble typically contains initialization settings
+ * that must be written before the main configuration data.
+ *
+ * Return: 0 on success, negative error code on failure
+ */
 static int si5344_send_preamble(struct clk_si5344 *data)
 {
 	int res;
 
+	/* Write all preamble registers to the device */
 	res = si5344_write_multiple(data, si5344_preamble,
 				    ARRAY_SIZE(si5344_preamble));
 	if (res < 0)
 		return res;
 
+	/* Wait for device to process preamble configuration */
 	msleep(300);
 
 	return 0;
@@ -584,31 +594,48 @@ static const struct regmap_config si5344_regmap_config = {
 	.max_register = SI5344_REGISTER_MAX,
 };
 
+/*
+ * si5344_probe - probe function for SI5344 I2C device
+ * @client: Pointer to I2C client device structure
+ *
+ * This function is called when the SI5344 device is detected and matched with
+ * the driver. It allocates memory for device data, initializes regmap for I2C
+ * communication, and performs complete device configuration sequence including
+ * preamble, main configuration, and postamble.
+ *
+ * Return: 0 on success, negative error code on failure
+ */
 static int si5344_probe(struct i2c_client *client)
 {
 	struct clk_si5344 *data;
 	int err;
 
+	/* Allocate memory for device data structure */
 	data = devm_kzalloc(&client->dev, sizeof(*data), GFP_KERNEL);
 	if (!data)
 		return -ENOMEM;
 
+	/* Initialize device structure with I2C client */
 	data->i2c_client = client;
 
+	/* Initialize regmap for I2C register access with paging support */
 	data->regmap = devm_regmap_init_i2c(client, &si5344_regmap_config);
 	if (IS_ERR(data->regmap))
 		return PTR_ERR(data->regmap);
 
+	/* Associate device data with I2C client for later retrieval */
 	i2c_set_clientdata(client, data);
 
+	/* Send preamble configuration - initialization settings */
 	err = si5344_send_preamble(data);
 	if (err < 0) {
 		dev_err(&data->i2c_client->dev, "failed to write pre-amble\n");
 		return err;
 	}
-
+	/* Disable regmap cache for direct register access */
 	regcache_cache_only(data->regmap, false);
-	/* Write the configuration pairs from the firmware blob */
+
+	/* Write the main configuration registers for 400MHz FRL clock generation */
 	err = si5344_write_multiple(data, si5344_reg_defaults,
 				    ARRAY_SIZE(si5344_reg_defaults));
 	if (err < 0) {
@@ -617,12 +644,14 @@ static int si5344_probe(struct i2c_client *client)
 		return err;
 	}
 
+	/* Send postamble configuration - finalization and soft reset */
 	err = si5344_send_postamble(data);
 	if (err < 0) {
 		dev_err(&data->i2c_client->dev, "failed to write post-amble\n");
 		return err;
 	}
 
+	/* Configuration complete - device is ready to generate clocks */
 	return 0;
 }
 
@@ -655,6 +684,14 @@ EXPORT_SYMBOL_GPL(si5344_exit);
 
 int si5344_entry(void)
 {
+	struct device_node *node;
+
+	node = of_find_matching_node(NULL, clk_si5344_of_match);
+	if (!node) {
+		pr_err("SI5344: Compatible DT node 'si5344' not found.\n");
+		return -ENODEV;
+	}
+	of_node_put(node);
 	return i2c_add_driver(&si5344_driver);
 }
 EXPORT_SYMBOL_GPL(si5344_entry);

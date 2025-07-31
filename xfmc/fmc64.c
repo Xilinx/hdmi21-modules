@@ -17,12 +17,7 @@
 #include <linux/slab.h>
 #include <linux/spinlock.h>
 #include <linux/version.h>
-
-/* function prototypes */
-int fmc64_rx_refclk_sel(unsigned int clk_sel);
-int fmc64_tx_refclk_sel(unsigned int clk_sel);
-int fmc64_entry(void);
-void fmc64_exit(void);
+#include "x_vfmc.h"
 
 static const struct i2c_device_id fmc64_id[] = {
 	{ "expander-fmc64", 8 },
@@ -42,7 +37,7 @@ struct fmc64 {
 	struct mutex	lock;		/* protect 'out' */
 	unsigned int status;	/* current status */
 	unsigned int out;	/* software latch */
-	int (*write)(struct i2c_client *client, unsigned data);
+	int (*write)(struct i2c_client *client, unsigned int data);
 	int (*read)(struct i2c_client *client);
 };
 
@@ -58,7 +53,7 @@ enum fmc64_refclk_sel {
 	rx_refclk_from_si5344,
 };
 
-struct fmc64			*gpio64;
+struct fmc64 *gpio64;
 
 /* Talk to 8-bit I/O expander */
 
@@ -119,7 +114,7 @@ int fmc64_tx_refclk_sel(unsigned int clk_sel)
 	int ret;
 
 	if (clk_sel == tx_refclk_from_idt) {
-		dev_info(&gpio64->client->dev, "tx refclock from idt\n");
+		dev_info(&gpio64->client->dev, "tx refclock from IDT\n");
 		ret |= fmc64_modify_reg(gpio64, 0x41, 0x60);
 
 	} else if (clk_sel == tx_refclk_from_si5344) {
@@ -139,6 +134,23 @@ int fmc64_tx_refclk_sel(unsigned int clk_sel)
 }
 EXPORT_SYMBOL_GPL(fmc64_tx_refclk_sel);
 
+/**
+ * fmc64_probe - Probe function for FMC64 I2C GPIO expander driver
+ * @client: I2C client device instance
+ *
+ * This function initializes the FMC64 GPIO expander device by:
+ * - Parsing device tree or platform data for configuration
+ * - Allocating and configuring GPIO chip structure
+ * - Setting up I2C communication functions (8-bit operations)
+ * - Verifying I2C adapter functionality and device presence
+ * - Registering the GPIO chip with the kernel
+ * - Initializing the FMC64 device with default settings
+ *
+ * The FMC64 expander provides 8 GPIO lines and supports reference clock
+ * selection for HDMI TX/RX operations through register configuration.
+ *
+ * Return: 0 on success, negative error code on failure
+ */
 static int fmc64_probe(struct i2c_client *client)
 {
 	struct p_data	*pdata = dev_get_platdata(&client->dev);
@@ -147,6 +159,7 @@ static int fmc64_probe(struct i2c_client *client)
 	int				status;
 	const struct i2c_device_id *id = i2c_match_id(fmc64_id, client);
 
+	/* Parse device tree or platform data for initial GPIO states */
 	if (IS_ENABLED(CONFIG_OF) && np)
 		of_property_read_u32(np, "lines-initial-states", &n_latch);
 	else if (pdata)
@@ -154,26 +167,30 @@ static int fmc64_probe(struct i2c_client *client)
 	else
 		dev_dbg(&client->dev, "no platform data\n");
 
-	/* Allocate, initialize, and register this gpio_chip. */
+	/* Allocate memory for FMC64 device structure */
 	gpio64 = devm_kzalloc(&client->dev, sizeof(*gpio64), GFP_KERNEL);
 	if (!gpio64)
 		return -ENOMEM;
 
+	/* Initialize mutex for protecting register access */
 	mutex_init(&gpio64->lock);
 
+	/* Configure GPIO chip properties */
 	gpio64->chip.base			= pdata ? pdata->gpio_base : -1;
 	gpio64->chip.parent		= &client->dev;
 	gpio64->chip.owner		= THIS_MODULE;
 	gpio64->chip.ngpio		= id->driver_data;
 
+	/* Set up I2C communication functions for 8-bit operations */
 	if (gpio64->chip.ngpio == 8) {
 		gpio64->write	= i2c_write_le8;
 		gpio64->read	= i2c_read_le8;
 
+		/* Verify I2C adapter supports required functionality */
 		if (!i2c_check_functionality(client->adapter,
 					     I2C_FUNC_SMBUS_BYTE))
 			status = -EIO;
-		/* fail if there's no chip present */
+		/* Test device presence by attempting to read */
 		else
 			status = i2c_smbus_read_byte(client);
 	} else {
@@ -181,20 +198,23 @@ static int fmc64_probe(struct i2c_client *client)
 		status = -EINVAL;
 	}
 
+	/* Return error if device initialization failed */
 	if (status < 0)
 		goto fail;
 
+	/* Complete GPIO chip setup with device information */
 	gpio64->chip.label = client->name;
 	gpio64->client = client;
 	i2c_set_clientdata(client, gpio64);
-	gpio64->out = ~n_latch;
-	gpio64->status = gpio64->out;
+	gpio64->out = ~n_latch;		/* Set initial output state */
+	gpio64->status = gpio64->out;	/* Cache current status */
 
+	/* Register GPIO chip with the kernel GPIO subsystem */
 	status = devm_gpiochip_add_data(&client->dev, &gpio64->chip, gpio64);
 	if (status < 0)
 		goto fail;
 
-	/* init fmc64 */
+	/* Initialize FMC64 device with default configuration (0x41) */
 	gpio64->write(gpio64->client, 0x41);
 
 	return 0;
@@ -236,6 +256,14 @@ EXPORT_SYMBOL_GPL(fmc64_exit);
 
 int fmc64_entry(void)
 {
+	struct device_node *node;
+
+	node = of_find_matching_node(NULL, fmc64_of_table);
+	if (!node) {
+		pr_err("FMC64: Compatible DT node 'expander-fmc64' not found.\n");
+		return -ENODEV;
+	}
+	of_node_put(node);
 	return i2c_add_driver(&fmc64_driver);
 }
 EXPORT_SYMBOL_GPL(fmc64_entry);

@@ -15,10 +15,7 @@
 #include <linux/regmap.h>
 #include <linux/slab.h>
 #include <linux/version.h>
-
-int tipower_entry(void);
-void tipower_exit(void);
-int tipower_init(void);
+#include "x_vfmc.h"
 
 struct reg_8 {
 	u16 addr;
@@ -62,6 +59,7 @@ static inline int tipower_read_reg(struct tipowers *priv, u16 addr, u8 *val)
 static inline int tipower_write_reg(struct tipowers *priv, u16 addr, u8 val)
 {
 	int err;
+
 	err = regmap_write(priv->regmap, addr, val);
 	if (err)
 		dev_dbg(&priv->client->dev, "tipower :regmap_write failed\n");
@@ -103,18 +101,34 @@ static const struct i2c_device_id tipower_id[] = {
 };
 MODULE_DEVICE_TABLE(i2c, tipower_id);
 
+/**
+ * tipower_probe - Probe function for TIPOWER LMK03318 clock generator driver
+ * @client: I2C client device instance
+ *
+ * This function initializes the TIPOWER LMK03318 clock generator device by:
+ * - Allocating memory for the device structure
+ * - Setting up regmap for I2C register access
+ * - Initializing the device with default clock configuration
+ * - Configuring mutex for thread-safe operations
+ *
+ * The LMK03318 is programmed with fixed clock settings during probe to
+ * provide stable clock generation for HDMI applications.
+ *
+ * Return: 0 on success, negative error code on failure
+ */
 static int tipower_probe(struct i2c_client *client)
 {
 	int ret;
 
-	/* initialize tipower */
+	/* Allocate memory for TIPOWER device structure */
 	tipower = devm_kzalloc(&client->dev, sizeof(*tipower), GFP_KERNEL);
 	if (!tipower)
 		return -ENOMEM;
 
+	/* Initialize mutex for protecting register access operations */
 	mutex_init(&tipower->lock);
 
-	/* initialize regmap */
+	/* Initialize regmap for I2C communication with 8-bit registers */
 	tipower->regmap = devm_regmap_init_i2c(client, &tipower_regmap_config);
 	if (IS_ERR(tipower->regmap)) {
 		dev_err(&client->dev,
@@ -122,12 +136,14 @@ static int tipower_probe(struct i2c_client *client)
 		ret = -ENODEV;
 		goto err_regmap;
 	}
+
 	dev_dbg(&client->dev, "Initialize ti chip with default values\n");
 	tipower_init();
 
 	return 0;
 
 err_regmap:
+	/* Clean up mutex on regmap initialization failure */
 	mutex_destroy(&tipower->lock);
 	return ret;
 }
@@ -163,6 +179,14 @@ EXPORT_SYMBOL_GPL(tipower_exit);
 
 int tipower_entry(void)
 {
+	struct device_node *node;
+
+	node = of_find_matching_node(NULL, tipower_of_id_table);
+	if (!node) {
+		pr_err("TIPOWER: Compatible DT node 'expander-tipower' not found.\n");
+		return -ENODEV;
+	}
+	of_node_put(node);  // Release the node reference
 	return i2c_add_driver(&tipower_i2c_driver);
 }
 EXPORT_SYMBOL_GPL(tipower_entry);

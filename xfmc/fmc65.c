@@ -17,11 +17,7 @@
 #include <linux/slab.h>
 #include <linux/spinlock.h>
 #include <linux/version.h>
-
-int fmc65_tx_refclk_sel(unsigned int clk_sel);
-int fmc65_rx_refclk_sel(unsigned int clk_sel);
-int fmc65_entry(void);
-void fmc65_exit(void);
+#include "x_vfmc.h"
 
 static const struct i2c_device_id fmc65_id[] = {
 	{ "expander-fmc65", 8 },
@@ -41,7 +37,7 @@ struct fmc65 {
 	struct mutex	lock;	/* protect 'out' */
 	unsigned int	status;	/* current status */
 	unsigned int	out;	/* software latch */
-	int (*write)(struct i2c_client *client, unsigned data);
+	int (*write)(struct i2c_client *client, unsigned int data);
 	int (*read)(struct i2c_client *client);
 };
 
@@ -59,7 +55,7 @@ enum fmc_tx_refclk {
 
 /* Talk to 8-bit I/O expander */
 
-static int i2c_write_le8(struct i2c_client *client, unsigned data)
+static int i2c_write_le8(struct i2c_client *client, unsigned int data)
 {
 	return i2c_smbus_write_byte(client, data);
 }
@@ -108,6 +104,15 @@ int fmc65_tx_refclk_sel(unsigned int clk_sel)
 }
 EXPORT_SYMBOL_GPL(fmc65_tx_refclk_sel);
 
+/*
+ * fmc65_probe - Probe function for FMC65 expander device
+ * @client: Pointer to I2C client device
+ *
+ * This function initializes the FMC65 GPIO expander device, sets up
+ * GPIO chip configuration, and registers it with the GPIO subsystem.
+ *
+ * Return: 0 on success, negative error code on failure
+ */
 static int fmc65_probe(struct i2c_client *client)
 {
 	struct p_data	*pdata = dev_get_platdata(&client->dev);
@@ -207,6 +212,14 @@ EXPORT_SYMBOL_GPL(fmc65_exit);
 
 int fmc65_entry(void)
 {
+	struct device_node *node;
+
+	node = of_find_matching_node(NULL, fmc65_of_table);
+	if (!node) {
+		pr_err("FMC65: Compatible DT node 'expander-fmc65' not found.\n");
+		return -ENODEV;
+	}
+	of_node_put(node);
 	return i2c_add_driver(&fmc65_driver);
 }
 EXPORT_SYMBOL_GPL(fmc65_entry);
