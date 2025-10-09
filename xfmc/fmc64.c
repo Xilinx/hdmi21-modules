@@ -260,7 +260,6 @@ int fmc64_entry(void)
 
 	node = of_find_matching_node(NULL, fmc64_of_table);
 	if (!node) {
-		pr_err("FMC64: Compatible DT node 'expander-fmc64' not found.\n");
 		return -ENODEV;
 	}
 	of_node_put(node);

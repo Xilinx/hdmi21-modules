@@ -210,6 +210,7 @@ static int xvfmc_probe(struct platform_device *pdev)
 			{ "fmc", fmc_entry },
 			{ "fmc65", fmc65_entry },
 			{ "fmc64", fmc64_entry },
+			{ "fmc74", fmc74_entry },
 			{ "tipower", tipower_entry },
 			{ "si5344", si5344_entry },
 		};
@@ -224,11 +225,7 @@ static int xvfmc_probe(struct platform_device *pdev)
 		}
 	}
 
-	ret = fmc74_entry();
-	if (ret) {
-		dev_err(xfmcdev->dev, "fmc74 registration failed\n");
-		return ret;
-	}
+
 
 	msleep_range(300);
 
@@ -241,29 +238,46 @@ static int xvfmc_probe(struct platform_device *pdev)
 
 	if (is_versal_edge_board()) {
 		ret = ti_tmds1204tx_entry();
-		if (ret) {
-			dev_err(xfmcdev->dev, "Failed to register TI TX\n");
+		if (ret == -ENODEV) {
+                        dev_info(xfmcdev->dev,
+                                 "TI TMDS1204 TX: device tree node not found; TX not initialized\n");
+		} else if (ret) {
+                        dev_err(xfmcdev->dev,
+                                "TI TMDS1204 TX init failed with error %d; probe aborted\n", ret);
+
 			return ret;
 		}
 		msleep_range(500);
 		ret = ti_tmds1204rx_entry();
-		if (ret) {
-			dev_err(xfmcdev->dev, "Failed to register TI RX\n");
+		if (ret == -ENODEV) {
+			dev_info(xfmcdev->dev,
+				 "TI TMDS1204 RX: device tree node not found; RX not initialized\n");
+		} else if (ret) {
+			dev_err(xfmcdev->dev,
+				"TI TMDS1204 RX init failed with error %d; probe aborted\n", ret);
 			return ret;
 		}
 
 	} else {
 		ret = onsemitx_entry();
-		if (ret) {
-			dev_err(xfmcdev->dev, "Failed to register Onsemi TX\n");
+		if (ret == -ENODEV) {
+			dev_info(xfmcdev->dev,
+				 "Onsemi TX: device tree node not found; TX not initialized\n");
+		} else if (ret) {
+			dev_err(xfmcdev->dev,
+				"Onsemi TX: initialization failed with error %d; probe aborted\n", ret);
 			return ret;
 		}
 
 		msleep_range(300);
 
 		ret = onsemirx_entry();
-		if (ret) {
-			dev_err(xfmcdev->dev, "Failed to register Onsemi RX\n");
+		if (ret == -ENODEV) {
+			dev_info(xfmcdev->dev,
+				 "Onsemi RX: device tree node not found; RX not initialized\n");
+		} else if (ret) {
+			dev_err(xfmcdev->dev,
+				"Onsemi RX: initialization failed with error %d; probe aborted\n", ret);
 			return ret;
 		}
 	}

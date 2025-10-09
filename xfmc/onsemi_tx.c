@@ -711,10 +711,9 @@ int onsemitx_entry(void)
 
 	node = of_find_matching_node(NULL, onsemitx_of_id_table);
 	if (!node) {
-		pr_err("OnsemiTX: Compatible DT node 'onsemi,onsemi-tx' not found.\n");
 		return -ENODEV;
 	}
-	of_node_put(node);  // Release reference after successful match
+	of_node_put(node);
 	return i2c_add_driver(&onsemitx_i2c_driver);
 }
 EXPORT_SYMBOL_GPL(onsemitx_entry);

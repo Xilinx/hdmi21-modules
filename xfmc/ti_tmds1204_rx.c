@@ -495,7 +495,6 @@ int ti_tmds1204rx_entry(void)
 
 	node = of_find_matching_node(NULL, ti_tmds1204rx_of_id_table);
 	if (!node) {
-		pr_err("TI_TMDS1204_RX: Compatible DT node 'ti_tmds1204,ti_tmds1204-rx' not found.\n");
 		return -ENODEV;
 	}
 	of_node_put(node);

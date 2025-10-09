@@ -495,10 +495,9 @@ int ti_tmds1204tx_entry(void)
 
 	node = of_find_matching_node(NULL, ti_tmds1204tx_of_id_table);
 	if (!node) {
-		pr_err("TI_TMDS1204_TX: Compatible DT node 'ti_tmds1204,ti_tmds1204-tx' not found.\n");
 		return -ENODEV;
 	}
-	of_node_put(node);  // Safely release reference to avoid memory leak
+	of_node_put(node);
 	return i2c_add_driver(&ti_tmds1204tx_i2c_driver);
 }
 EXPORT_SYMBOL_GPL(ti_tmds1204tx_entry);

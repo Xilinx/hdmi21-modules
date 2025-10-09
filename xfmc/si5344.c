@@ -688,7 +688,6 @@ int si5344_entry(void)
 
 	node = of_find_matching_node(NULL, clk_si5344_of_match);
 	if (!node) {
-		pr_err("SI5344: Compatible DT node 'si5344' not found.\n");
 		return -ENODEV;
 	}
 	of_node_put(node);

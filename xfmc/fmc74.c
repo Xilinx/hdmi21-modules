@@ -178,7 +178,6 @@ int fmc74_entry(void)
 
 	node = of_find_matching_node(NULL, fmc74_of_id_table);
 	if (!node) {
-		pr_err("FMC74: Compatible DT node 'expander-fmc74' not found.\n");
 		return -ENODEV;
 	}
 	of_node_put(node);

@@ -558,7 +558,6 @@ int onsemirx_entry(void)
 
 	node = of_find_matching_node(NULL, onsemirx_of_id_table);
 	if (!node) {
-		pr_err("OnsemiRX: Compatible DT node 'onsemi,onsemi-rx' not found.\n");
 		return -ENODEV;
 	}
 	of_node_put(node);

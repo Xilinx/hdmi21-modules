@@ -158,7 +158,6 @@ int fmc_entry(void)
 
 	node = of_find_matching_node(NULL, fmc_of_id_table);
 	if (!node) {
-		pr_err("FMC: Compatible DT node 'expander-fmc' not found.\n");
 		return -ENODEV;
 	}
 

@@ -216,7 +216,6 @@ int fmc65_entry(void)
 
 	node = of_find_matching_node(NULL, fmc65_of_table);
 	if (!node) {
-		pr_err("FMC65: Compatible DT node 'expander-fmc65' not found.\n");
 		return -ENODEV;
 	}
 	of_node_put(node);

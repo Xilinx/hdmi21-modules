@@ -912,7 +912,6 @@ int idt_entry(void)
 
 	node = of_find_matching_node(NULL, idt_of_id_table);
 	if (!node) {
-		pr_err("IDT: Compatible DT node 'idt,idt8t49' not found.\n");
 		return -ENODEV;
 	}
 

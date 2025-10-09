@@ -183,7 +183,6 @@ int tipower_entry(void)
 
 	node = of_find_matching_node(NULL, tipower_of_id_table);
 	if (!node) {
-		pr_err("TIPOWER: Compatible DT node 'expander-tipower' not found.\n");
 		return -ENODEV;
 	}
 	of_node_put(node);  // Release the node reference
