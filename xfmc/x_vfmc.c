@@ -196,8 +196,10 @@ static int xvfmc_probe(struct platform_device *pdev)
 	xfmcdev->dev = &pdev->dev;
 	xfmcdev->val = 5;
 	ret = xfmcdev_parse_of(xfmcdev);
-	if (ret < 0)
-		dev_dbg(xfmcdev->dev, "xlnx,board-type property not found in DT\n");
+	if (ret < 0) {
+		dev_err(xfmcdev->dev, "Failed to parse board-type property in device tree\n");
+		return ret;
+	}
 	priv_data->sel_mux = &sel_mux;
 	priv_data->set_linerate = &set_linerate;
 
@@ -225,8 +227,6 @@ static int xvfmc_probe(struct platform_device *pdev)
 		}
 	}
 
-
-
 	msleep_range(300);
 
 	ret = idt_entry();
@@ -234,6 +234,7 @@ static int xvfmc_probe(struct platform_device *pdev)
 		dev_err(xfmcdev->dev, "Failed to register IDT\n");
 		return ret;
 	}
+
 	msleep_range(300);
 
 	if (is_versal_edge_board()) {
@@ -244,10 +245,11 @@ static int xvfmc_probe(struct platform_device *pdev)
 		} else if (ret) {
                         dev_err(xfmcdev->dev,
                                 "TI TMDS1204 TX init failed with error %d; probe aborted\n", ret);
-
 			return ret;
 		}
+
 		msleep_range(500);
+
 		ret = ti_tmds1204rx_entry();
 		if (ret == -ENODEV) {
 			dev_info(xfmcdev->dev,
