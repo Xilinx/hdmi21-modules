@@ -291,6 +291,38 @@ static int xvfmc_probe(struct platform_device *pdev)
 	return 0;
 }
 
+/*
+ * xvfmc_remove - Unregister all sub-drivers during device removal
+ * @pdev: Pointer to the platform device structure
+ *
+ * This function is called when the overlay is unloaded. It unregisters
+ * all I2C sub-drivers that were registered during probe, in reverse
+ * order, so the overlay can be cleanly reloaded.
+ */
+static void xvfmc_remove(struct platform_device *pdev)
+{
+	if (is_versal_edge_board()) {
+		ti_tmds1204rx_exit();
+		ti_tmds1204tx_exit();
+	} else {
+		onsemirx_exit();
+		onsemitx_exit();
+	}
+
+	idt_exit();
+
+	if (!is_versal_edge_board()) {
+		si5344_exit();
+		tipower_exit();
+		fmc74_exit();
+		fmc64_exit();
+		fmc65_exit();
+		fmc_exit();
+	}
+
+	dev_info(&pdev->dev, "Xilinx XVFMC Removed!!");
+}
+
 /* Match table for of_platform binding */
 static const struct of_device_id xvfmc_of_match[] = {
 	{ .compatible = "vfmc" },
@@ -300,6 +332,7 @@ MODULE_DEVICE_TABLE(of, xvfmc_of_match);
 
 static struct platform_driver xvfmc_driver = {
 	.probe = xvfmc_probe,
+	.remove = xvfmc_remove,
 	.driver = {
 		.name = "xilinx-vfmc",
 		.of_match_table	= xvfmc_of_match,
